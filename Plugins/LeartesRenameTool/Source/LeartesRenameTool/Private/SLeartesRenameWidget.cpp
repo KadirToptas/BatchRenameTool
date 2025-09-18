@@ -17,6 +17,9 @@
 #include "Engine/Selection.h"
 #include "EngineUtils.h"
 #include "Widgets/Views/SListView.h"
+#include "AssetRegistry/AssetRegistryModule.h"  // FAssetRegistryModule için
+#include "AssetRegistry/IAssetRegistry.h"       // IAssetRegistry için
+#include "TimerManager.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Misc/ScopedSlowTask.h"
@@ -434,13 +437,21 @@ FReply SLeartesRenameWidget::OnApplyClicked()
         {
             FRenameLogic::RenameActorsBatch(ActorsToRename, CurrentOptions);
         }
+
+        // Content Browser'ı güncelle
+        if (FModuleManager::Get().IsModuleLoaded("ContentBrowser"))
+        {
+            FContentBrowserModule& CBModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
+            CBModule.Get().SyncBrowserToAssets(AssetsToRename, true);
+        }
+        GEditor->NoteSelectionChange();
     }
     else
     {
         UE_LOG(LogTemp, Log, TEXT("Dry run: no rename executed."));
     }
 
-    // Refresh after apply to reflect real engine changes and new collisions
+    // Refresh after apply to reflect real engine changes
     RefreshSelection();
     RefreshPreview();
 

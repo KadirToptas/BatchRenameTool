@@ -8,10 +8,14 @@
 #include "Engine/Selection.h"
 #include "Misc/PackageName.h"
 #include "UObject/SoftObjectPath.h"
-#include "EngineUtils.h"            // TActorIterator
+#include "EngineUtils.h"
 #include "GameFramework/Actor.h"
-#include "UObject/WeakObjectPtr.h"  // TWeakObjectPtr
+#include "UObject/WeakObjectPtr.h"
 #include "Misc/ScopedSlowTask.h"
+#include "UObject/Package.h"
+#include "UObject/UObjectGlobals.h"
+#include "Engine/World.h"
+#include "Subsystems/AssetEditorSubsystem.h"
 
 // Helper: apply case operation
 static FString ApplyCaseOp(const FString& In, ECaseOp Op)
@@ -62,8 +66,8 @@ TArray<FRenamePreviewItem> FRenameLogic::GeneratePreviewForAssets(const TArray<F
     TArray<FRenamePreviewItem> Out;
     Out.Reserve(Assets.Num());
 
-    FAssetRegistryModule& ARM = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-    IAssetRegistry& AR = ARM.Get();
+    FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+    IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 
     for (int32 i = 0; i < Assets.Num(); ++i)
     {
@@ -74,15 +78,12 @@ TArray<FRenamePreviewItem> FRenameLogic::GeneratePreviewForAssets(const TArray<F
         FString NewName = GenerateNewName(OldName, Options, i);
 
         FString PackagePath = AD.PackagePath.ToString();
-        FString FullPackageName = FString::Printf(TEXT("%s/%s"), *PackagePath, *NewName);
+        FString NewPackageName = FString::Printf(TEXT("%s/%s"), *PackagePath, *NewName);
 
-        bool bCollision = false;
-        TArray<FAssetData> Found;
-        AR.GetAssetsByPackageName(*FullPackageName, Found);
-        if (Found.Num() > 0)
-        {
-            bCollision = true;
-        }
+        // Asset registry ile collision kontrolü
+        TArray<FAssetData> ExistingAssets;
+        AssetRegistry.GetAssetsByPackageName(*NewPackageName, ExistingAssets);
+        bool bCollision = ExistingAssets.Num() > 0;
 
         Out.Add(FRenamePreviewItem(OldName, NewName, bCollision));
     }
@@ -135,62 +136,78 @@ void FRenameLogic::RenameAssetsBatch(const TArray<FAssetData>& AssetsToRename, c
     FScopedTransaction Transaction(TransactionText);
 
     IAssetTools& AssetTools = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools").Get();
+    FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+    IAssetRegistry& AssetRegistry = AssetRegistryModule.Get();
 
-    TArray<FAssetRenameData> RenameDataArray;
-    RenameDataArray.Reserve(AssetsToRename.Num());
+    int32 SuccessCount = 0;
+    int32 FailureCount = 0;
 
     for (int32 i = 0; i < AssetsToRename.Num(); ++i)
     {
         const FAssetData& AD = AssetsToRename[i];
-        if (!AD.IsValid()) continue;
-
-        UObject* AssetObj = AD.GetAsset();
-
-        // Transaction için hazırlık
-        if (AssetObj)
+        if (!AD.IsValid())
         {
-            AssetObj->SetFlags(RF_Transactional);
-            AssetObj->Modify();
+            UE_LOG(LogTemp, Warning, TEXT("Skipping invalid asset data at index %d"), i);
+            FailureCount++;
+            continue;
+        }
 
-            UPackage* Package = AssetObj->GetOutermost();
-            if (Package)
-            {
-                Package->SetFlags(RF_Transactional);
-                Package->Modify();
-            }
+        // Asset object'i yükle
+        UObject* AssetObj = AD.GetAsset();
+        if (!AssetObj)
+        {
+            UE_LOG(LogTemp, Warning, TEXT("Could not load asset: %s"), *AD.AssetName.ToString());
+            FailureCount++;
+            continue;
         }
 
         FString OldName = AD.AssetName.ToString();
         FString NewName = GenerateNewName(OldName, Options, i);
-
-        // Yeni constructor kullanımı: 
-        // TWeakObjectPtr<UObject>, PackagePath, NewName, fix soft references, rename localized variants
-        TWeakObjectPtr<UObject> WeakObjPtr = AssetObj ? TWeakObjectPtr<UObject>(AssetObj) : TWeakObjectPtr<UObject>(nullptr);
         
         FString PackagePath = AD.PackagePath.ToString();
+        FString NewPackagePath = FString::Printf(TEXT("%s/%s"), *PackagePath, *NewName);
+
+        UE_LOG(LogTemp, Log, TEXT("Attempting to rename asset: '%s' -> '%s'"), *AD.PackageName.ToString(), *NewPackagePath);
+
+        // Single asset rename için FAssetRenameData oluştur
+        TArray<FAssetRenameData> RenameDataArray;
+        FAssetRenameData RenameData(AssetObj, PackagePath, NewName);
+        RenameDataArray.Add(RenameData);
+
+        // Asset rename işlemi
+        bool bRenameSuccess = AssetTools.RenameAssets(RenameDataArray);
         
-        FAssetRenameData RenameData(
-            WeakObjPtr,       // Weak Object Pointer
-            PackagePath,       // Yeni Package Path
-            NewName,           // Yeni asset ismi
-            true,             // Soft referansları güncelleme
-            true               // Localize edilmiş varyantları da yeniden adlandır
-        );
-
-        RenameDataArray.Add(MoveTemp(RenameData));
+        if (bRenameSuccess)
+        {
+            UE_LOG(LogTemp, Log, TEXT("Successfully renamed asset: '%s' to '%s'"), *OldName, *NewName);
+            SuccessCount++;
+        }
+        else
+        {
+            UE_LOG(LogTemp, Error, TEXT("Failed to rename asset: '%s' to '%s'"), *OldName, *NewName);
+            FailureCount++;
+        }
     }
 
-    if (RenameDataArray.Num() > 0)
+    // Asset Registry'yi güncelle
+    if (SuccessCount > 0)
     {
-        AssetTools.RenameAssets(RenameDataArray);
+        TArray<FString> PathsToScan;
+        PathsToScan.Add(TEXT("/Game"));
+        AssetRegistry.ScanPathsSynchronous(PathsToScan, true);
     }
+
+    UE_LOG(LogTemp, Log, TEXT("Asset rename batch completed. Success: %d, Failed: %d"), SuccessCount, FailureCount);
 }
+
 void FRenameLogic::RenameActorsBatch(const TArray<AActor*>& ActorsToRename, const FRenameOptions& Options)
 {
     if (ActorsToRename.Num() == 0) return;
 
     const FText TransactionText = FText::FromString(TEXT("Rename Actors"));
     FScopedTransaction Transaction(TransactionText);
+
+    int32 SuccessCount = 0;
 
     for (int32 i = 0; i < ActorsToRename.Num(); ++i)
     {
@@ -201,5 +218,10 @@ void FRenameLogic::RenameActorsBatch(const TArray<AActor*>& ActorsToRename, cons
         FString OldLabel = Actor->GetActorLabel();
         FString NewLabel = GenerateNewName(OldLabel, Options, i);
         Actor->SetActorLabel(NewLabel, true);
+        
+        UE_LOG(LogTemp, Log, TEXT("Renamed actor: '%s' -> '%s'"), *OldLabel, *NewLabel);
+        SuccessCount++;
     }
+
+    UE_LOG(LogTemp, Log, TEXT("Actor rename completed. Success: %d"), SuccessCount);
 }
