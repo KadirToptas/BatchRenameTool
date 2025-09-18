@@ -1,0 +1,24 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "LeartesRenameTool",
+	"Description": "Batch rename tool for assets and actors",
+	"Category": "Editor",
+	"CreatedBy": "Kadir Toptas",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"CanContainContent": false,
+	"IsBetaVersion": false,
+	"IsExperimentalVersion": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "LeartesRenameTool",
+			"Type": "Editor",
+			"LoadingPhase": "Default"
+		}
+	]
+}
