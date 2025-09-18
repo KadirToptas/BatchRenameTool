@@ -4,6 +4,8 @@
 
 #define LOCTEXT_NAMESPACE "FLeartesRenameToolModule"
 
+//register open plugin window command
+
 void FLeartesRenameToolCommands::RegisterCommands()
 {
 	UI_COMMAND(OpenPluginWindow, "LeartesRenameTool", "Bring up LeartesRenameTool window", EUserInterfaceActionType::Button, FInputChord());

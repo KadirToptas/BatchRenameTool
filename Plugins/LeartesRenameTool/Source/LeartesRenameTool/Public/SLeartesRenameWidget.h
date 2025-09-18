@@ -5,6 +5,8 @@
 #include "RenameLogic.h"
 #include "AssetRegistry/AssetData.h"
 
+//main slate widget for the rename tool
+
 class SLeartesRenameWidget : public SCompoundWidget
 {
 public:
@@ -22,36 +24,39 @@ private:
     TSharedPtr<class SCheckBox> AssetsCheckBox;
     TSharedPtr<class SCheckBox> ActorsCheckBox;
     TSharedPtr<class SCheckBox> DryRunCheckBox;
-    TSharedPtr<class SCheckBox> UseNumberingCheckBox; // new
+    TSharedPtr<class SCheckBox> UseNumberingCheckBox;
     TSharedPtr<class SNumericEntryBox<int32>> StartNumberEntry;
     TSharedPtr<class SNumericEntryBox<int32>> PaddingEntry;
     TSharedPtr<class STextComboBox> CaseComboBox;
     TSharedPtr<class SListView<TSharedPtr<FRenamePreviewItem>>> PreviewListView;
 
     // Visible selection count texts
-    TSharedPtr<class STextBlock> AssetsCountText; // new
-    TSharedPtr<class STextBlock> ActorsCountText; // new
+    TSharedPtr<class STextBlock> AssetsCountText;
+    TSharedPtr<class STextBlock> ActorsCountText;
 
+    // Current options cached from UI
     FRenameOptions CurrentOptions;
 
     // Cached numeric values and case selection to avoid calling GetValue/SetValue
     int32 CachedStartNumber = 1;
     int32 CachedPadding = 2;
-    bool bCachedUseNumbering = true; // new: cached state if needed
+    bool bCachedUseNumbering = true; //cached state if needed
 
     TArray<TSharedPtr<FString>> CaseOptionsList;
     TSharedPtr<FString> SelectedCaseItem;
 
+    //cached selection arrays
     TArray<FAssetData> CachedSelectedAssets;
     TArray<AActor*> CachedSelectedActors;
     TArray<TSharedPtr<FRenamePreviewItem>> PreviewItems;
 
-    // Callbacks / actions
+    //callbacks and actions
     FReply OnApplyClicked();
     FReply OnRefreshClicked();
     FReply OnCancelClicked();
-    void OnUseNumberingChanged(ECheckBoxState NewState); // new
+    void OnUseNumberingChanged(ECheckBoxState NewState);
 
+    //update ui and previews
     void RefreshSelection();
     void RefreshPreview();
     TSharedRef<ITableRow> OnGenerateRowForPreview(TSharedPtr<FRenamePreviewItem> Item, const TSharedRef<STableViewBase>& OwnerTable);

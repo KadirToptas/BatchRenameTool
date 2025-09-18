@@ -17,7 +17,7 @@
 #include "Engine/World.h"
 #include "Subsystems/AssetEditorSubsystem.h"
 
-// Helper: apply case operation
+// apply case transformation according to ECaseOp
 static FString ApplyCaseOp(const FString& In, ECaseOp Op)
 {
     switch (Op)
@@ -38,17 +38,21 @@ static FString ApplyCaseOp(const FString& In, ECaseOp Op)
     }
 }
 
+//build new name from old name using options and index for numbering
 FString FRenameLogic::GenerateNewName(const FString& OldName, const FRenameOptions& Options, int32 Index)
 {
     FString Base = OldName;
 
+    //apply find/replace
     if (!Options.Find.IsEmpty())
     {
         Base = Base.Replace(*Options.Find, *Options.Replace, ESearchCase::CaseSensitive);
     }
 
+    // apply case operation
     Base = ApplyCaseOp(Base, Options.CaseOp);
 
+    //prepare numbering portion if requested
     FString NumberPart;
     if (Options.bUseNumbering)
     {
@@ -57,10 +61,12 @@ FString FRenameLogic::GenerateNewName(const FString& OldName, const FRenameOptio
         NumberPart = TEXT("_") + NumberPart;
     }
 
+    //final new name
     FString NewName = Options.Prefix + Base + NumberPart + Options.Suffix;
     return NewName;
 }
 
+// Generate preview list for assets
 TArray<FRenamePreviewItem> FRenameLogic::GeneratePreviewForAssets(const TArray<FAssetData>& Assets, const FRenameOptions& Options)
 {
     TArray<FRenamePreviewItem> Out;
@@ -80,7 +86,7 @@ TArray<FRenamePreviewItem> FRenameLogic::GeneratePreviewForAssets(const TArray<F
         FString PackagePath = AD.PackagePath.ToString();
         FString NewPackageName = FString::Printf(TEXT("%s/%s"), *PackagePath, *NewName);
 
-        // Asset registry ile collision kontrolü
+        // collision check with asset registry
         TArray<FAssetData> ExistingAssets;
         AssetRegistry.GetAssetsByPackageName(*NewPackageName, ExistingAssets);
         bool bCollision = ExistingAssets.Num() > 0;
@@ -91,6 +97,7 @@ TArray<FRenamePreviewItem> FRenameLogic::GeneratePreviewForAssets(const TArray<F
     return Out;
 }
 
+//generate actor rename preview using actor labels
 TArray<FRenamePreviewItem> FRenameLogic::GeneratePreviewForActors(const TArray<AActor*>& Actors, const FRenameOptions& Options)
 {
     TArray<FRenamePreviewItem> Out;
@@ -128,6 +135,7 @@ TArray<FRenamePreviewItem> FRenameLogic::GeneratePreviewForActors(const TArray<A
     return Out;
 }
 
+//rename assets in batch one by one with logging and error handling using AssetTools
 void FRenameLogic::RenameAssetsBatch(const TArray<FAssetData>& AssetsToRename, const FRenameOptions& Options)
 {
     if (AssetsToRename.Num() == 0) return;
@@ -152,7 +160,7 @@ void FRenameLogic::RenameAssetsBatch(const TArray<FAssetData>& AssetsToRename, c
             continue;
         }
 
-        // Asset object'i yükle
+        // try to load uobject for the asset
         UObject* AssetObj = AD.GetAsset();
         if (!AssetObj)
         {
@@ -169,12 +177,12 @@ void FRenameLogic::RenameAssetsBatch(const TArray<FAssetData>& AssetsToRename, c
 
         UE_LOG(LogTemp, Log, TEXT("Attempting to rename asset: '%s' -> '%s'"), *AD.PackageName.ToString(), *NewPackagePath);
 
-        // Single asset rename için FAssetRenameData oluştur
+        //Prepare rename data for a single asset
         TArray<FAssetRenameData> RenameDataArray;
         FAssetRenameData RenameData(AssetObj, PackagePath, NewName);
         RenameDataArray.Add(RenameData);
 
-        // Asset rename işlemi
+        //returns bool indicating success for the operation
         bool bRenameSuccess = AssetTools.RenameAssets(RenameDataArray);
         
         if (bRenameSuccess)
@@ -189,7 +197,7 @@ void FRenameLogic::RenameAssetsBatch(const TArray<FAssetData>& AssetsToRename, c
         }
     }
 
-    // Asset Registry'yi güncelle
+    // update asset registry if any assets were successfully renamed
     if (SuccessCount > 0)
     {
         TArray<FString> PathsToScan;
@@ -200,6 +208,7 @@ void FRenameLogic::RenameAssetsBatch(const TArray<FAssetData>& AssetsToRename, c
     UE_LOG(LogTemp, Log, TEXT("Asset rename batch completed. Success: %d, Failed: %d"), SuccessCount, FailureCount);
 }
 
+//Rename actors in world by setting actor labels
 void FRenameLogic::RenameActorsBatch(const TArray<AActor*>& ActorsToRename, const FRenameOptions& Options)
 {
     if (ActorsToRename.Num() == 0) return;
@@ -214,7 +223,7 @@ void FRenameLogic::RenameActorsBatch(const TArray<AActor*>& ActorsToRename, cons
         AActor* Actor = ActorsToRename[i];
         if (!Actor) continue;
 
-        Actor->Modify();
+        Actor->Modify(); // mark actor as modified for undo/redo
         FString OldLabel = Actor->GetActorLabel();
         FString NewLabel = GenerateNewName(OldLabel, Options, i);
         Actor->SetActorLabel(NewLabel, true);

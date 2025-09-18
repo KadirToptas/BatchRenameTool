@@ -4,7 +4,8 @@
 
 #include "Styling/SlateStyle.h"
 
-/**  */
+//register slate style for the plugin icons and UI
+
 class FLeartesRenameToolStyle
 {
 public:

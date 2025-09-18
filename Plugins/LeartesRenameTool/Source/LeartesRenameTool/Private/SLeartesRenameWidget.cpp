@@ -17,13 +17,14 @@
 #include "Engine/Selection.h"
 #include "EngineUtils.h"
 #include "Widgets/Views/SListView.h"
-#include "AssetRegistry/AssetRegistryModule.h"  // FAssetRegistryModule için
-#include "AssetRegistry/IAssetRegistry.h"       // IAssetRegistry için
+#include "AssetRegistry/AssetRegistryModule.h" 
+#include "AssetRegistry/IAssetRegistry.h" 
 #include "TimerManager.h"
 #include "Widgets/Layout/SScrollBox.h"
 #include "Framework/Application/SlateApplication.h"
 #include "Misc/ScopedSlowTask.h"
 
+//construct the widget and set up initial state
 void SLeartesRenameWidget::Construct(const FArguments& InArgs)
 {
     // Default option state
@@ -42,7 +43,7 @@ void SLeartesRenameWidget::Construct(const FArguments& InArgs)
     CaseOptionsList.Add(MakeShared<FString>(TEXT("CapitalizeFirst")));
     SelectedCaseItem = CaseOptionsList[0];
 
-    // Build UI widgets with lambda bindings
+    // Build UI widgets with lambda bindings simple local cache
     CaseComboBox = SNew(STextComboBox)
         .OptionsSource(&CaseOptionsList)
         .InitiallySelectedItem(SelectedCaseItem)
@@ -53,6 +54,7 @@ void SLeartesRenameWidget::Construct(const FArguments& InArgs)
             }
         });
 
+    //numeric entries for numbering
     StartNumberEntry = SNew(SNumericEntryBox<int32>)
         .AllowSpin(true)
         .MinValue(0)
@@ -67,7 +69,7 @@ void SLeartesRenameWidget::Construct(const FArguments& InArgs)
         .Value_Lambda([this]() -> TOptional<int32> { return TOptional<int32>(CachedPadding); })
         .OnValueChanged_Lambda([this](int32 NewValue) { CachedPadding = NewValue; });
 
-    // Use numbering checkbox
+    // Use numbering checkbox triggers immediate preview refresh
     UseNumberingCheckBox = SNew(SCheckBox)
         .IsChecked(ECheckBoxState::Checked)
         .OnCheckStateChanged(this, &SLeartesRenameWidget::OnUseNumberingChanged);
@@ -86,7 +88,7 @@ void SLeartesRenameWidget::Construct(const FArguments& InArgs)
         [
             SNew(SHorizontalBox)
 
-            // Left: controls
+            //controls
             + SHorizontalBox::Slot()
             .FillWidth(0.45f)
             .Padding(4)
@@ -98,7 +100,7 @@ void SLeartesRenameWidget::Construct(const FArguments& InArgs)
                     SNew(STextBlock).Text(FText::FromString(TEXT("Leartes Batch Rename Tool"))).Font(FCoreStyle::GetDefaultFontStyle("Regular", 16))
                 ]
 
-                // Selection counts row (NEW)
+                // Selection counts row
                 + SVerticalBox::Slot().AutoHeight().Padding(2)
                 [
                     SNew(SHorizontalBox)
@@ -150,7 +152,7 @@ void SLeartesRenameWidget::Construct(const FArguments& InArgs)
                     SAssignNew(ReplaceTextBox, SEditableTextBox)
                 ]
 
-                // Numbering row (with checkbox) (NEW)
+                // Numbering row with checkbox
                 + SVerticalBox::Slot().AutoHeight().Padding(4)
                 [
                     SNew(SHorizontalBox)
@@ -190,7 +192,7 @@ void SLeartesRenameWidget::Construct(const FArguments& InArgs)
                     CaseComboBox.ToSharedRef()
                 ]
 
-                // Checkboxes for target selection
+                // target selection checkboxes
                 + SVerticalBox::Slot().AutoHeight().Padding(4)
                 [
                     SNew(SHorizontalBox)
@@ -247,7 +249,7 @@ void SLeartesRenameWidget::Construct(const FArguments& InArgs)
                 ]
             ]
 
-            // Right: preview list
+            //preview list
             + SHorizontalBox::Slot().FillWidth(0.55f).Padding(4)
             [
                 SNew(SVerticalBox)
@@ -272,6 +274,7 @@ void SLeartesRenameWidget::Construct(const FArguments& InArgs)
     RefreshPreview();
 }
 
+//checkbox state change handler
 void SLeartesRenameWidget::OnUseNumberingChanged(ECheckBoxState NewState)
 {
     bCachedUseNumbering = (NewState == ECheckBoxState::Checked);
@@ -281,7 +284,7 @@ void SLeartesRenameWidget::OnUseNumberingChanged(ECheckBoxState NewState)
 
 void SLeartesRenameWidget::RefreshSelection()
 {
-    // Assets
+    //assets in content browser
     CachedSelectedAssets.Empty();
     if (FModuleManager::Get().IsModuleLoaded("ContentBrowser"))
     {
@@ -291,7 +294,7 @@ void SLeartesRenameWidget::RefreshSelection()
         CachedSelectedAssets = SelectedAssets;
     }
 
-    // Actors
+    //actors in level editor
     CachedSelectedActors.Empty();
     if (GEditor)
     {
@@ -306,6 +309,7 @@ void SLeartesRenameWidget::RefreshSelection()
     UpdateSelectionCounts();
 }
 
+//Update the text blocks that display how many assets / actors are selected
 void SLeartesRenameWidget::UpdateSelectionCounts()
 {
     int32 AssetCount = CachedSelectedAssets.Num();
@@ -323,9 +327,10 @@ void SLeartesRenameWidget::UpdateSelectionCounts()
     UE_LOG(LogTemp, Log, TEXT("Selected Assets: %d, Selected Actors: %d"), AssetCount, ActorCount);
 }
 
+//Build the preview items using FRenameLogic dry-run functions
 void SLeartesRenameWidget::RefreshPreview()
 {
-    // Read simple text inputs
+    // Read ui text inputs
     CurrentOptions.Prefix = PrefixTextBox.IsValid() ? PrefixTextBox->GetText().ToString() : TEXT("");
     CurrentOptions.Suffix = SuffixTextBox.IsValid() ? SuffixTextBox->GetText().ToString() : TEXT("");
     CurrentOptions.Find = FindTextBox.IsValid() ? FindTextBox->GetText().ToString() : TEXT("");
@@ -334,9 +339,9 @@ void SLeartesRenameWidget::RefreshPreview()
     // Use cached numeric values and numbering toggle
     if (UseNumberingCheckBox.IsValid())
     {
-        // Get the state (could be ECheckBoxState or bool depending on signatures)
+        // Get the state could be ECheckBoxState or bool depending on signatures
         auto CheckState = UseNumberingCheckBox->IsChecked();
-        // Normalize by casting to int32 - works whether CheckState is bool (0/1) or enum
+        // Normalize by casting to int32 - works whether CheckState is bool or enum
         CurrentOptions.bUseNumbering = (static_cast<int32>(CheckState) == static_cast<int32>(ECheckBoxState::Checked));
     }
     else
@@ -364,7 +369,7 @@ void SLeartesRenameWidget::RefreshPreview()
     CurrentOptions.bApplyToActors = ActorsCheckBox.IsValid() && ActorsCheckBox->IsChecked();
     CurrentOptions.bDryRun = DryRunCheckBox.IsValid() && DryRunCheckBox->IsChecked();
 
-    // Build preview items
+    // rebuild preview items
     PreviewItems.Empty();
 
     if (CurrentOptions.bApplyToAssets && CachedSelectedAssets.Num() > 0)
@@ -391,6 +396,7 @@ void SLeartesRenameWidget::RefreshPreview()
     }
 }
 
+//generate a row for the preview list view
 TSharedRef<ITableRow> SLeartesRenameWidget::OnGenerateRowForPreview(TSharedPtr<FRenamePreviewItem> Item, const TSharedRef<STableViewBase>& OwnerTable)
 {
     FText RowText = FText::FromString(Item->OldName + TEXT(" -> ") + Item->NewName + (Item->bCollision ? TEXT(" (Collision)") : TEXT("")));
@@ -400,6 +406,7 @@ TSharedRef<ITableRow> SLeartesRenameWidget::OnGenerateRowForPreview(TSharedPtr<F
     ];
 }
 
+//refresh button handler
 FReply SLeartesRenameWidget::OnRefreshClicked()
 {
     RefreshSelection();
@@ -407,9 +414,10 @@ FReply SLeartesRenameWidget::OnRefreshClicked()
     return FReply::Handled();
 }
 
+//apply button handler
 FReply SLeartesRenameWidget::OnApplyClicked()
 {
-    // Refresh options from UI/cached values first
+    //refresh options from ui first
     RefreshPreview();
 
     TArray<FAssetData> AssetsToRename;
@@ -438,12 +446,13 @@ FReply SLeartesRenameWidget::OnApplyClicked()
             FRenameLogic::RenameActorsBatch(ActorsToRename, CurrentOptions);
         }
 
-        // Content Browser'ı güncelle
+        // update content browser selection to renamed assets
         if (FModuleManager::Get().IsModuleLoaded("ContentBrowser"))
         {
             FContentBrowserModule& CBModule = FModuleManager::LoadModuleChecked<FContentBrowserModule>("ContentBrowser");
             CBModule.Get().SyncBrowserToAssets(AssetsToRename, true);
         }
+        //inform editor that selection may have changed
         GEditor->NoteSelectionChange();
     }
     else
@@ -451,13 +460,14 @@ FReply SLeartesRenameWidget::OnApplyClicked()
         UE_LOG(LogTemp, Log, TEXT("Dry run: no rename executed."));
     }
 
-    // Refresh after apply to reflect real engine changes
+    // update ui to reflect any changes
     RefreshSelection();
     RefreshPreview();
 
     return FReply::Handled();
 }
 
+//cancel button handler - reset all fields to default state
 FReply SLeartesRenameWidget::OnCancelClicked()
 {
     if (PrefixTextBox.IsValid()) PrefixTextBox->SetText(FText::GetEmpty());
@@ -482,7 +492,7 @@ FReply SLeartesRenameWidget::OnCancelClicked()
         UseNumberingCheckBox->SetIsChecked(ECheckBoxState::Checked);
     }
 
-    // Update selection counts and preview
+    // refresh selection counts and preview
     RefreshSelection();
     RefreshPreview();
 

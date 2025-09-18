@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 
-// Basit case enum
+// enum for case transformation options
 enum class ECaseOp : uint8
 {
 	None,
@@ -11,7 +11,7 @@ enum class ECaseOp : uint8
 	CapitalizeFirst
 };
 
-// Tüm rename seçenekleri tek yerde
+// container for all rename options
 struct FRenameOptions
 {
 	FString Prefix;
@@ -30,7 +30,7 @@ struct FRenameOptions
 	bool bDryRun = true;
 };
 
-// Preview için basit struct
+// preview item shown in the widget
 struct FRenamePreviewItem
 {
 	FString OldName;

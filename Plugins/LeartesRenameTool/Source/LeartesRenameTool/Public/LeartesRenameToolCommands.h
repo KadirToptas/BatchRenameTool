@@ -1,9 +1,10 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
 
 #pragma once
 
 #include "Framework/Commands/Commands.h"
 #include "LeartesRenameToolStyle.h"
+
+//UI command definitions
 
 class FLeartesRenameToolCommands : public TCommands<FLeartesRenameToolCommands>
 {
@@ -14,9 +15,10 @@ public:
 	{
 	}
 
-	// TCommands<> interface
+	// Called by engine to register the command list
 	virtual void RegisterCommands() override;
 
 public:
+	//command to open the plugin window
 	TSharedPtr< FUICommandInfo > OpenPluginWindow;
 };
