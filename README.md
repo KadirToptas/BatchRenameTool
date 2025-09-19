@@ -69,5 +69,5 @@ This tool meets all the core requirements outlined in the task document, providi
 ### Technical Details
 * **Language:** C++
 * **UI Framework:** Slate UI Framework
-* **Engine Version:** Unreal Engine 5.x
+* **Engine Version:** Unreal Engine 5.5
 * **Core Engine Modules Used:** `Core`, `CoreUObject`, `Engine`, `Slate`, `SlateCore`, `EditorStyle`, `UnrealEd`, `AssetTools`, `ContentBrowser`, `AssetRegistry`, `ToolMenus`, `Projects`.
